@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
   usv_navigation_msgs
   dynamic_reconfigure
+  message_filters
 )
 
 generate_dynamic_reconfigure_options(
