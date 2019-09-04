@@ -80,8 +80,8 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<std::vect
         line_marker.action = visualization_msgs::Marker::ADD;
         line_marker.frame_locked = true;
         std_msgs::ColorRGBA color;
-        color.r = 0.3;
-        color.g = 1.0;
+        color.r = 1.0;
+        color.g = 0.5;
         color.b = 0.3;
         color.a = 1.0;
         line_marker.color = color;
@@ -124,8 +124,6 @@ std::vector<geometry_msgs::PoseStamped> DwaPlanner::predictPath(double linear_ve
         rot = quaternion_operation::convertQuaternionToEulerAngle(quat);
         point.x = point.x + linear_vel*config_.sampling_time*std::cos(rot.z);
         point.y = point.y + linear_vel*config_.sampling_time*std::sin(rot.z);
-        //ROS_ERROR_STREAM(point.y);
-        //ROS_ERROR_STREAM(linear_vel << "," << linear_vel*config_.sampling_time*std::cos(rot.z));
     }
     return ret;
 }
