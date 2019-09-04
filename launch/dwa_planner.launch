@@ -5,11 +5,13 @@
     <arg name="twist_stamped_topic" default="$(arg node_name)/twist_stamped"/>
     <arg name="twist_cmd_topic" default="$(arg node_name)/target_twist"/>
     <arg name="current_pose_topic" default="$(arg node_name)/current_pose"/>
+    <arg name="robot_frame" default="base_link"/>
 
     <node pkg="dwa_planner" type="dwa_planner_node" name="dwa_planner_node" output="screen" respawn="false" respawn_delay="0">
         <param name="path_topic" value="$(arg path_topic)"/>
         <param name="twist_stamped_topic" value="$(arg twist_stamped_topic)"/>
         <param name="twist_cmd_topic" value="$(arg twist_cmd_topic)"/>
         <param name="current_pose_topic" value="$(arg current_pose_topic)"/>
+        <param name="robot_frame" value="$(arg robot_frame)"/>
     </node>
 </launch>

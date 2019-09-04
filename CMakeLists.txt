@@ -11,7 +11,11 @@ find_package(catkin REQUIRED COMPONENTS
   usv_navigation_msgs
   dynamic_reconfigure
   message_filters
+  quaternion_operation
+  tf2_geometry_msgs
 )
+
+find_package(Eigen3 REQUIRED)
 
 generate_dynamic_reconfigure_options(
   cfg/DwaPlanner.cfg
@@ -20,13 +24,14 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES dwa_planner
-  CATKIN_DEPENDS geometry_msgs roscpp tf2_ros usv_navigation_msgs
+  CATKIN_DEPENDS geometry_msgs roscpp tf2_ros usv_navigation_msgs tf2_geometry_msgs
 #  DEPENDS system_lib
 )
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
 )
 
 add_executable(dwa_planner_node src/dwa_planner_node.cpp src/dwa_planner.cpp)
