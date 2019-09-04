@@ -50,8 +50,8 @@ std::vector<double> DwaPlanner::getAngularVelList(geometry_msgs::TwistStamped tw
     ret.push_back(angular_vel);
     while(true)
     {
-        angular_vel = angular_vel + config_.lim_angular_acc*config_.sampling_time;
-        if(angular_vel>config_.lim_angular_vel)
+        angular_vel = angular_vel + config_.delta_angular_vel;
+        if(angular_vel>config_.lim_angular_vel || std::fabs(angular_vel-twist.twist.angular.z)>(config_.lim_angular_acc*config_.sampling_time))
         {
             break;
         }
@@ -62,8 +62,8 @@ std::vector<double> DwaPlanner::getAngularVelList(geometry_msgs::TwistStamped tw
     }
     while(true)
     {
-        angular_vel = angular_vel - config_.lim_angular_acc*config_.sampling_time;
-        if(angular_vel<(config_.lim_angular_vel)*-1)
+        angular_vel = angular_vel - config_.delta_angular_vel;
+        if(angular_vel<(config_.lim_angular_vel)*-1 || std::fabs(angular_vel-twist.twist.angular.z)>(config_.lim_angular_acc*config_.sampling_time))
         {
             break;
         }
