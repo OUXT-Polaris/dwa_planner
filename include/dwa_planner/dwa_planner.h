@@ -17,7 +17,7 @@ public:
     ~DwaPlanner();
 private:
     void paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t level);
-    dwa_planner::DwaPlannerConfig cpnfig_;
+    dwa_planner::DwaPlannerConfig config_;
     void twistStampedCallback(const geometry_msgs::TwistStamped::ConstPtr msg);
     void pathCallback(const usv_navigation_msgs::Path::ConstPtr msg);
     dynamic_reconfigure::Server<dwa_planner::DwaPlannerConfig> server_;
@@ -31,6 +31,8 @@ private:
     std::string path_topic_;
     ros::Publisher twist_cmd_pub_;
     std::string twist_cmd_topic_;
+    std::vector<double> getAngularVelList(geometry_msgs::TwistStamped twist);
+    std::vector<double> getLinearVelList(geometry_msgs::TwistStamped twist);
 };
 
 #endif  //DWA_PLANNER_DWA_PLANNER_H_INCLUDED
