@@ -67,7 +67,8 @@ private:
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
     geometry_msgs::TransformStamped transform_stamped_;
-    boost::optional<grid_map::GridMap> map_;
+    grid_map::GridMap map_;
+    bool map_recieved_;
     std::string grid_map_topic_;
 };
 

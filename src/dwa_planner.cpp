@@ -3,6 +3,7 @@
 
 DwaPlanner::DwaPlanner(ros::NodeHandle nh,ros::NodeHandle pnh) : tf_listener_(tf_buffer_)
 {
+    map_recieved_ = false;
     nh_ = nh;
     pnh_ = pnh;
     param_func_ = boost::bind(&DwaPlanner::paramsCallback, this, _1, _2);
@@ -30,7 +31,7 @@ DwaPlanner::~DwaPlanner()
 
 void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr pose,const geometry_msgs::TwistStamped::ConstPtr twist)
 {
-    if(!map_)
+    if(!map_recieved_)
     {
         return;
     }
@@ -54,6 +55,10 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
             paths.push_back(path);
         }
     }
+    for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
+    {
+        getCost(*path_itr);
+    }
     visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp);
     marker_pub_.publish(marker_msg);
     return;
@@ -61,13 +66,14 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
 
 double DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamped> path)
 {
-    double resolution = map_->getResolution();
-    for (grid_map::GridMapIterator iterator(*map_); !iterator.isPastEnd(); ++iterator)
+    double resolution = map_.getResolution();
+    for (grid_map::GridMapIterator iterator(map_); !iterator.isPastEnd(); ++iterator)
     {
         int i = iterator.getLinearIndex();
         grid_map::Position position;
-        map_->getPosition(*iterator, position);
+        map_.getPosition(*iterator, position);
     }
+    return 0;
 }
 
 void DwaPlanner::paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t level)
@@ -179,7 +185,8 @@ std::vector<double> DwaPlanner::getAngularVelList(geometry_msgs::TwistStamped tw
 
 void DwaPlanner::gridMapCallback(const grid_map_msgs::GridMap::ConstPtr msg)
 {
-    grid_map::GridMapRosConverter::fromMessage(*msg,*map_);
+    grid_map::GridMapRosConverter::fromMessage(*msg,map_);
+    map_recieved_ = true;
     return;
 }
 
