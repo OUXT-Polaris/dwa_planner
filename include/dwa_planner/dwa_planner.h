@@ -23,6 +23,10 @@
 
 // Headers in Boost
 #include <boost/optional.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/assign/list_of.hpp>
 
 // Headers in this package
 #include <dwa_planner/DwaPlannerConfig.h>
@@ -63,6 +67,7 @@ private:
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy> > sync_ptr_;
     std::vector<geometry_msgs::PoseStamped> predictPath(double linear_vel,double angular_vel);
     visualization_msgs::MarkerArray generateMarker(std::vector<std::vector<geometry_msgs::PoseStamped> > paths,ros::Time header);
+    visualization_msgs::Marker generateRobotModelMarker(ros::Time stamp);
     double getCost(std::vector<geometry_msgs::PoseStamped> path);
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
@@ -70,6 +75,8 @@ private:
     grid_map::GridMap map_;
     bool map_recieved_;
     std::string grid_map_topic_;
+    double robot_width_;
+    double robot_length_;
 };
 
 #endif  //DWA_PLANNER_DWA_PLANNER_H_INCLUDED

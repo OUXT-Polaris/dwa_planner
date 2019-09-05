@@ -66,12 +66,21 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
 
 double DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamped> path)
 {
+    namespace bg = boost::geometry;
+    typedef bg::model::d2::point_xy<double> point;
+    typedef bg::model::polygon<point> polygon;
     double resolution = map_.getResolution();
     for (grid_map::GridMapIterator iterator(map_); !iterator.isPastEnd(); ++iterator)
     {
         int i = iterator.getLinearIndex();
         grid_map::Position position;
         map_.getPosition(*iterator, position);
+        double x_min = position.x() - (resolution*0.5);
+        double x_max = position.x() + (resolution*0.5);
+        double y_min = position.y() - (resolution*0.5);
+        double y_max = position.y() + (resolution*0.5);
+        polygon poly_grid;
+        bg::exterior_ring(poly_grid) = boost::assign::list_of<point>(x_min,y_min)(x_min,y_max)(x_max,y_max)(x_max,y_min);
     }
     return 0;
 }
@@ -88,9 +97,52 @@ void DwaPlanner::pathCallback(const usv_navigation_msgs::Path::ConstPtr msg)
     return;
 }
 
+visualization_msgs::Marker DwaPlanner::generateRobotModelMarker(ros::Time stamp)
+{
+    visualization_msgs::Marker robot_model_marker;
+    robot_model_marker.header.stamp = stamp;
+    robot_model_marker.header.frame_id = robot_frame_;
+    robot_model_marker.ns = "robot_model";
+    robot_model_marker.id = 0;
+    robot_model_marker.type = visualization_msgs::Marker::LINE_STRIP;
+    robot_model_marker.action = visualization_msgs::Marker::ADD;
+    robot_model_marker.frame_locked = true;
+    std_msgs::ColorRGBA color_robot_model;
+    color_robot_model.r = 0.0;
+    color_robot_model.g = 1.0;
+    color_robot_model.b = 0.0;
+    color_robot_model.a = 1.0;
+    robot_model_marker.color = color_robot_model;
+    robot_model_marker.lifetime = ros::Duration(1.0);
+    robot_model_marker.scale.x = 0.05;
+    robot_model_marker.scale.y = 0.05;
+    robot_model_marker.scale.z = 0.05;
+    geometry_msgs::Point p0,p1,p2,p3;
+    p0.y = config_.robot_width*-0.5;
+    p0.x = config_.robot_length*-0.5;
+    p1.y = config_.robot_width*0.5;
+    p1.x = config_.robot_length*-0.5;
+    p2.y = config_.robot_width*0.5;
+    p2.x = config_.robot_length*0.5;
+    p3.y = config_.robot_width*-0.5;
+    p3.x = config_.robot_length*0.5;
+    robot_model_marker.points.push_back(p0);
+    robot_model_marker.colors.push_back(color_robot_model);
+    robot_model_marker.points.push_back(p1);
+    robot_model_marker.colors.push_back(color_robot_model);
+    robot_model_marker.points.push_back(p2);
+    robot_model_marker.colors.push_back(color_robot_model);
+    robot_model_marker.points.push_back(p3);
+    robot_model_marker.colors.push_back(color_robot_model);
+    robot_model_marker.points.push_back(p0);
+    robot_model_marker.colors.push_back(color_robot_model);
+    return robot_model_marker;
+}
+
 visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<std::vector<geometry_msgs::PoseStamped> > paths,ros::Time stamp)
 {
     visualization_msgs::MarkerArray marker_msg;
+    marker_msg.markers.push_back(generateRobotModelMarker(stamp));
     int id = 0;
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
     {
