@@ -13,6 +13,15 @@ find_package(catkin REQUIRED COMPONENTS
   message_filters
   quaternion_operation
   tf2_geometry_msgs
+  grid_map_core
+  grid_map_ros
+  grid_map_cv
+  grid_map_filters
+  grid_map_loader
+  grid_map_msgs
+  grid_map_octomap
+  grid_map_rviz_plugin
+  grid_map_visualization
 )
 
 find_package(Eigen3 REQUIRED)

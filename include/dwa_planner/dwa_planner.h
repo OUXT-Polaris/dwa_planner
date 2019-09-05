@@ -13,9 +13,16 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <grid_map_msgs/GridMap.h>
+#include <grid_map_core/GridMap.hpp>
+#include <grid_map_core/iterators/GridMapIterator.hpp>
+#include <grid_map_ros/grid_map_ros.hpp>
 
 // Headers in STL
 #include <memory>
+
+// Headers in Boost
+#include <boost/optional.hpp>
 
 // Headers in this package
 #include <dwa_planner/DwaPlannerConfig.h>
@@ -34,6 +41,7 @@ private:
     void pathCallback(const usv_navigation_msgs::Path::ConstPtr msg);
     void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr msg);
     void poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr pose,const geometry_msgs::TwistStamped::ConstPtr twist);
+    void gridMapCallback(const grid_map_msgs::GridMap::ConstPtr msg);
     dynamic_reconfigure::Server<dwa_planner::DwaPlannerConfig> server_;
     dynamic_reconfigure::Server<dwa_planner::DwaPlannerConfig>::CallbackType param_func_;
     ros::NodeHandle nh_;
@@ -44,6 +52,7 @@ private:
     std::string path_topic_;
     ros::Publisher twist_cmd_pub_;
     ros::Publisher marker_pub_;
+    ros::Subscriber grid_map_sub_;
     std::string twist_cmd_topic_;
     std::string current_pose_topic_;
     std::string robot_frame_;
@@ -54,9 +63,12 @@ private:
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy> > sync_ptr_;
     std::vector<geometry_msgs::PoseStamped> predictPath(double linear_vel,double angular_vel);
     visualization_msgs::MarkerArray generateMarker(std::vector<std::vector<geometry_msgs::PoseStamped> > paths,ros::Time header);
+    double getCost(std::vector<geometry_msgs::PoseStamped> path);
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
     geometry_msgs::TransformStamped transform_stamped_;
+    boost::optional<grid_map::GridMap> map_;
+    std::string grid_map_topic_;
 };
 
 #endif  //DWA_PLANNER_DWA_PLANNER_H_INCLUDED
