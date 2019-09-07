@@ -69,6 +69,12 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
     boost::optional<Path> selected_path = selectPath(paths,costs);
     visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp,selected_path);
     marker_pub_.publish(marker_msg);
+    geometry_msgs::TwistStamped twist_msg;
+    twist_msg.header.frame_id = robot_frame_;
+    twist_msg.header.stamp = pose->header.stamp;
+    twist_msg.twist.linear.x = selected_path->linear_vel;
+    twist_msg.twist.angular.z = selected_path->angular_vel;
+    twist_cmd_pub_.publish(twist_msg);
     return;
 }
 
@@ -227,6 +233,7 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
     visualization_msgs::MarkerArray marker_msg;
     marker_msg.markers.push_back(generateRobotModelMarker(stamp));
     int id = 0;
+    /*
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
     {
         visualization_msgs::Marker line_marker;
@@ -243,9 +250,9 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         color.b = 0.3;
         color.a = 0.8;
         line_marker.color = color;
-        line_marker.scale.x = 0.1;
-        line_marker.scale.y = 0.1;
-        line_marker.scale.z = 0.1;
+        line_marker.scale.x = 0.05;
+        line_marker.scale.y = 0.05;
+        line_marker.scale.z = 0.05;
         line_marker.lifetime = ros::Duration(1.0);
         for(auto pose_itr = path_itr->poses.begin(); pose_itr != path_itr->poses.end(); pose_itr++)
         {
@@ -256,6 +263,7 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         marker_msg.markers.push_back(line_marker);
         id++;
     }
+    */
     if(selected_path)
     {
         visualization_msgs::Marker selected_path_marker;
@@ -268,13 +276,13 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         selected_path_marker.frame_locked = true;
         std_msgs::ColorRGBA color;
         color.r = 1.0;
-        color.g = 1.0;
-        color.b = 1.0;
-        color.a = 1.0;
+        color.g = 0.5;
+        color.b = 0.3;
+        color.a = 0.8;
         selected_path_marker.color = color;
-        selected_path_marker.scale.x = 0.1;
-        selected_path_marker.scale.y = 0.1;
-        selected_path_marker.scale.z = 0.1;
+        selected_path_marker.scale.x = 0.05;
+        selected_path_marker.scale.y = 0.05;
+        selected_path_marker.scale.z = 0.05;
         selected_path_marker.lifetime = ros::Duration(1.0);
         for(auto pose_itr = selected_path->poses.begin(); pose_itr != selected_path->poses.end(); pose_itr++)
         {
