@@ -7,6 +7,7 @@
     <arg name="current_pose_topic" default="$(arg node_name)/current_pose"/>
     <arg name="grid_map_topic" default="$(arg node_name)/grid_map"/>
     <arg name="robot_frame" default="base_link"/>
+    <arg name="layer_name" default="base_layer"/>
 
     <node pkg="dwa_planner" type="dwa_planner_node" name="dwa_planner_node" output="screen" respawn="false" respawn_delay="0">
         <param name="path_topic" value="$(arg path_topic)"/>
@@ -15,5 +16,6 @@
         <param name="current_pose_topic" value="$(arg current_pose_topic)"/>
         <param name="robot_frame" value="$(arg robot_frame)"/>
         <param name="grid_map_topic" value="$(arg grid_map_topic)"/>
+        <param name="layer_name" value="$(arg layer_name)"/>
     </node>
 </launch>

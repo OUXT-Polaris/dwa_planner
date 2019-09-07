@@ -82,6 +82,17 @@ private:
     std::string grid_map_topic_;
     double robot_width_;
     double robot_length_;
+    std::string layer_name_;
+    inline double getDiffAngle(double angle0,double angle1)
+    {
+        double ret;
+        double a0 = std::cos(angle0);
+        double a1 = std::sin(angle0);
+        double b0 = std::cos(angle1);
+        double b1 = std::sin(angle1);
+        ret = std::acos(a0*b0 + a1*b1);
+        return ret;
+    };
 };
 
 #endif  //DWA_PLANNER_DWA_PLANNER_H_INCLUDED

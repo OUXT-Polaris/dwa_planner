@@ -13,6 +13,7 @@ DwaPlanner::DwaPlanner(ros::NodeHandle nh,ros::NodeHandle pnh) : tf_listener_(tf
     pnh_.param<std::string>("twist_cmd_topic", twist_cmd_topic_, ros::this_node::getName()+"/twist_cmd_topic");
     pnh_.param<std::string>("current_pose_topic", current_pose_topic_, ros::this_node::getName()+"/current_pose_topic");
     pnh_.param<std::string>("robot_frame", robot_frame_, "base_link");
+    pnh_.param<std::string>("layer_name", layer_name_, "base_layer");
     pnh_.param<std::string>("grid_map_topic", grid_map_topic_, ros::this_node::getName()+"/grid_map");
     marker_pub_ = pnh_.advertise<visualization_msgs::MarkerArray>("marker",1);
     twist_cmd_pub_ = nh_.advertise<geometry_msgs::TwistStamped>(twist_cmd_topic_,1);
@@ -47,6 +48,7 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
         return;
     }
     std::vector<std::vector<geometry_msgs::PoseStamped> > paths;
+    std::vector<boost::optional<double> > costs;
     for(auto angular_vel_itr = angular_vel_list.begin(); angular_vel_itr != angular_vel_list.end(); angular_vel_itr++)
     {
         for(auto linear_vel_itr = linear_vel_list.begin(); linear_vel_itr != linear_vel_list.end(); linear_vel_itr++)
@@ -58,6 +60,7 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
     {
         boost::optional<double> cost = getCost(*path_itr);
+        costs.push_back(cost);
     }
     visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp);
     marker_pub_.publish(marker_msg);
@@ -66,6 +69,9 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
 
 boost::optional<double> DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamped> path)
 {
+    ROS_ASSERT(path_.waypoints.size()>2);
+    double grid_map_cost = 0.0;
+    double cost = 0.0;
     boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(path);
     if(!trajectory_polygon)
     {
@@ -82,14 +88,17 @@ boost::optional<double> DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamp
     double resolution = map_.getResolution();
     for (grid_map::PolygonIterator iterator(map_, poly); !iterator.isPastEnd(); ++iterator)
     {
-        grid_map::Position position;
-        map_.getPosition(*iterator, position);
-        double x_min = position.x() - (resolution*0.5);
-        double x_max = position.x() + (resolution*0.5);
-        double y_min = position.y() - (resolution*0.5);
-        double y_max = position.y() + (resolution*0.5);
+        double value = map_.at("base_layer",*iterator);
+        grid_map_cost = grid_map_cost + value;
     }
-    return 0;
+    geometry_msgs::PoseStamped current_goal;
+    current_goal.pose = path_.waypoints[1].pose;
+    current_goal.header = path_.header;
+    double yaw_to_target = std::atan2(current_goal.pose.position.y,current_goal.pose.position.x);
+    double diff_abgle = getDiffAngle(yaw_to_target,quaternion_operation::convertQuaternionToEulerAngle(current_goal.pose.orientation).z);
+    double goal_distance = std::sqrt(std::pow(current_goal.pose.position.x,2)+std::pow(current_goal.pose.position.y,2));
+    cost = grid_map_cost*config_.weight_grid_map + (M_PI-diff_abgle)*config_.weight_heading + goal_distance+config_.weight_goal_distance;
+    return cost;
 }
 
 boost::optional<polygon> DwaPlanner::getRobotTrajectoryPolygon(std::vector<geometry_msgs::PoseStamped> path)
@@ -156,7 +165,7 @@ visualization_msgs::Marker DwaPlanner::generateRobotModelMarker(ros::Time stamp)
     color_robot_model.b = 0.0;
     color_robot_model.a = 1.0;
     robot_model_marker.color = color_robot_model;
-    robot_model_marker.lifetime = ros::Duration(1.0);
+    robot_model_marker.lifetime = ros::Duration(0.0);
     robot_model_marker.scale.x = 0.05;
     robot_model_marker.scale.y = 0.05;
     robot_model_marker.scale.z = 0.05;
