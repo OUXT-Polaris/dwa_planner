@@ -57,32 +57,75 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
     }
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
     {
-        getCost(*path_itr);
+        boost::optional<double> cost = getCost(*path_itr);
     }
     visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp);
     marker_pub_.publish(marker_msg);
     return;
 }
 
-double DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamped> path)
+boost::optional<double> DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamped> path)
 {
-    namespace bg = boost::geometry;
-    typedef bg::model::d2::point_xy<double> point;
-    typedef bg::model::polygon<point> polygon;
-    double resolution = map_.getResolution();
-    for (grid_map::GridMapIterator iterator(map_); !iterator.isPastEnd(); ++iterator)
+    boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(path);
+    if(!trajectory_polygon)
     {
-        int i = iterator.getLinearIndex();
+        return boost::none;
+    }
+    grid_map::Polygon poly;
+    for(auto it = boost::begin(boost::geometry::exterior_ring(*trajectory_polygon)); 
+        it != boost::end(boost::geometry::exterior_ring(*trajectory_polygon)); ++it)
+    {
+        double x = bg::get<0>(*it);
+        double y = bg::get<1>(*it);
+        poly.addVertex(grid_map::Position(x,y));
+    }
+    double resolution = map_.getResolution();
+    for (grid_map::PolygonIterator iterator(map_, poly); !iterator.isPastEnd(); ++iterator)
+    {
         grid_map::Position position;
         map_.getPosition(*iterator, position);
         double x_min = position.x() - (resolution*0.5);
         double x_max = position.x() + (resolution*0.5);
         double y_min = position.y() - (resolution*0.5);
         double y_max = position.y() + (resolution*0.5);
-        polygon poly_grid;
-        bg::exterior_ring(poly_grid) = boost::assign::list_of<point>(x_min,y_min)(x_min,y_max)(x_max,y_max)(x_max,y_min);
     }
     return 0;
+}
+
+boost::optional<polygon> DwaPlanner::getRobotTrajectoryPolygon(std::vector<geometry_msgs::PoseStamped> path)
+{
+    polygon ret;
+    int count = 0;
+    for(auto pose_itr = path.begin(); pose_itr != path.end(); pose_itr++)
+    {
+        double yaw = quaternion_operation::convertQuaternionToEulerAngle(pose_itr->pose.orientation).z;
+        double x0 = pose_itr->pose.position.x + 0.5*config_.robot_length*std::cos(yaw) + 0.5*config_.robot_width*std::cos(yaw+0.5*M_PI);
+        double y0 = pose_itr->pose.position.y + 0.5*config_.robot_length*std::sin(yaw) + 0.5*config_.robot_width*std::sin(yaw+0.5*M_PI);
+        double x1 = pose_itr->pose.position.x + 0.5*config_.robot_length*std::cos(yaw) - 0.5*config_.robot_width*std::cos(yaw+0.5*M_PI);
+        double y1 = pose_itr->pose.position.y + 0.5*config_.robot_length*std::sin(yaw) - 0.5*config_.robot_width*std::sin(yaw+0.5*M_PI);
+        double x2 = pose_itr->pose.position.x - 0.5*config_.robot_length*std::cos(yaw) - 0.5*config_.robot_width*std::cos(yaw+0.5*M_PI);
+        double y2 = pose_itr->pose.position.y - 0.5*config_.robot_length*std::sin(yaw) - 0.5*config_.robot_width*std::sin(yaw+0.5*M_PI);
+        double x3 = pose_itr->pose.position.x - 0.5*config_.robot_length*std::cos(yaw) + 0.5*config_.robot_width*std::cos(yaw+0.5*M_PI);
+        double y3 = pose_itr->pose.position.y - 0.5*config_.robot_length*std::sin(yaw) + 0.5*config_.robot_width*std::sin(yaw+0.5*M_PI);
+        polygon poly_robot;
+        bg::exterior_ring(poly_robot) = boost::assign::list_of<point>(x0,y0)(x1,y1)(x2,y2)(x3,y3)(x0,y0);
+        if(count == 0)
+        {
+            ret = poly_robot;
+        }
+        else
+        {
+            std::vector<polygon> out;
+            bg::union_(ret, poly_robot, out);
+            if(out.size() != 1)
+            {
+                return boost::none;
+            }
+            ret = out[0];
+        }
+        count++;
+    }
+    return ret;
 }
 
 void DwaPlanner::paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t level)

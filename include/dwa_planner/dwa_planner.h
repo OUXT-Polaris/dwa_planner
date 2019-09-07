@@ -32,6 +32,10 @@
 #include <dwa_planner/DwaPlannerConfig.h>
 
 typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseStamped, geometry_msgs::TwistStamped> SyncPolicy;
+namespace bg = boost::geometry;
+namespace trans = bg::strategy::transform;
+typedef bg::model::d2::point_xy<double> point;
+typedef bg::model::polygon<point,true> polygon;
 
 class DwaPlanner
 {
@@ -68,7 +72,8 @@ private:
     std::vector<geometry_msgs::PoseStamped> predictPath(double linear_vel,double angular_vel);
     visualization_msgs::MarkerArray generateMarker(std::vector<std::vector<geometry_msgs::PoseStamped> > paths,ros::Time header);
     visualization_msgs::Marker generateRobotModelMarker(ros::Time stamp);
-    double getCost(std::vector<geometry_msgs::PoseStamped> path);
+    boost::optional<polygon> getRobotTrajectoryPolygon(std::vector<geometry_msgs::PoseStamped> path);
+    boost::optional<double> getCost(std::vector<geometry_msgs::PoseStamped> path);
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
     geometry_msgs::TransformStamped transform_stamped_;
