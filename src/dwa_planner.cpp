@@ -47,14 +47,18 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
         ROS_WARN("%s",ex.what());
         return;
     }
-    std::vector<std::vector<geometry_msgs::PoseStamped> > paths;
+    std::vector<Path> paths;
     std::vector<boost::optional<double> > costs;
     for(auto angular_vel_itr = angular_vel_list.begin(); angular_vel_itr != angular_vel_list.end(); angular_vel_itr++)
     {
         for(auto linear_vel_itr = linear_vel_list.begin(); linear_vel_itr != linear_vel_list.end(); linear_vel_itr++)
         {
             std::vector<geometry_msgs::PoseStamped> path = predictPath(*linear_vel_itr,*angular_vel_itr);
-            paths.push_back(path);
+            Path p;
+            p.poses = path;
+            p.linear_vel = *linear_vel_itr;
+            p.angular_vel = *angular_vel_itr;
+            paths.push_back(p);
         }
     }
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
@@ -62,17 +66,44 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
         boost::optional<double> cost = getCost(*path_itr);
         costs.push_back(cost);
     }
-    visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp);
+    boost::optional<Path> selected_path = selectPath(paths,costs);
+    visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp,selected_path);
     marker_pub_.publish(marker_msg);
     return;
 }
 
-boost::optional<double> DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamped> path)
+boost::optional<Path> DwaPlanner::selectPath(std::vector<Path> paths,std::vector<boost::optional<double> > costs)
 {
-    ROS_ASSERT(path_.waypoints.size()>2);
+    ROS_ASSERT(paths.size() == costs.size());
+    std::vector<Path> filtered_paths;
+    std::vector<double> filtered_costs;
+    for(int i=0; i<paths.size(); i++)
+    {
+        if(costs[i])
+        {
+            filtered_paths.push_back(paths[i]);
+            filtered_costs.push_back(costs[i].get());
+        }
+    }
+    if(filtered_paths.size() == 0 || filtered_costs.size() == 0)
+    {
+        return boost::none;
+    }
+    ROS_ASSERT(filtered_paths.size() == filtered_costs.size());
+    auto min_cost_itr = std::min_element(filtered_costs.begin(), filtered_costs.end());
+    size_t min_cost_index = std::distance(filtered_costs.begin(), min_cost_itr);
+    return filtered_paths[min_cost_index];
+}
+
+boost::optional<double> DwaPlanner::getCost(Path path)
+{
+    if(path_.waypoints.size()<2)
+    {
+        return boost::none;
+    }
     double grid_map_cost = 0.0;
     double cost = 0.0;
-    boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(path);
+    boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(path.poses);
     if(!trajectory_polygon)
     {
         return boost::none;
@@ -97,7 +128,7 @@ boost::optional<double> DwaPlanner::getCost(std::vector<geometry_msgs::PoseStamp
     double yaw_to_target = std::atan2(current_goal.pose.position.y,current_goal.pose.position.x);
     double diff_abgle = getDiffAngle(yaw_to_target,quaternion_operation::convertQuaternionToEulerAngle(current_goal.pose.orientation).z);
     double goal_distance = std::sqrt(std::pow(current_goal.pose.position.x,2)+std::pow(current_goal.pose.position.y,2));
-    cost = grid_map_cost*config_.weight_grid_map + (M_PI-diff_abgle)*config_.weight_heading + goal_distance+config_.weight_goal_distance;
+    cost = grid_map_cost*config_.weight_grid_map + (M_PI-diff_abgle)*config_.weight_heading + goal_distance+config_.weight_goal_distance + config_.weight_velocity*path.linear_vel;
     return cost;
 }
 
@@ -191,7 +222,7 @@ visualization_msgs::Marker DwaPlanner::generateRobotModelMarker(ros::Time stamp)
     return robot_model_marker;
 }
 
-visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<std::vector<geometry_msgs::PoseStamped> > paths,ros::Time stamp)
+visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> paths,ros::Time stamp,boost::optional<Path> selected_path)
 {
     visualization_msgs::MarkerArray marker_msg;
     marker_msg.markers.push_back(generateRobotModelMarker(stamp));
@@ -210,13 +241,13 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<std::vect
         color.r = 1.0;
         color.g = 0.5;
         color.b = 0.3;
-        color.a = 1.0;
+        color.a = 0.8;
         line_marker.color = color;
         line_marker.scale.x = 0.1;
         line_marker.scale.y = 0.1;
         line_marker.scale.z = 0.1;
         line_marker.lifetime = ros::Duration(1.0);
-        for(auto pose_itr = path_itr->begin(); pose_itr != path_itr->end(); pose_itr++)
+        for(auto pose_itr = path_itr->poses.begin(); pose_itr != path_itr->poses.end(); pose_itr++)
         {
             geometry_msgs::Point p = pose_itr->pose.position;
             line_marker.points.push_back(p);
@@ -224,6 +255,34 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<std::vect
         }
         marker_msg.markers.push_back(line_marker);
         id++;
+    }
+    if(selected_path)
+    {
+        visualization_msgs::Marker selected_path_marker;
+        selected_path_marker.header.stamp = stamp;
+        selected_path_marker.header.frame_id = robot_frame_;
+        selected_path_marker.ns = "selected_path_line";
+        selected_path_marker.id = 0;
+        selected_path_marker.type = visualization_msgs::Marker::LINE_STRIP;
+        selected_path_marker.action = visualization_msgs::Marker::ADD;
+        selected_path_marker.frame_locked = true;
+        std_msgs::ColorRGBA color;
+        color.r = 1.0;
+        color.g = 1.0;
+        color.b = 1.0;
+        color.a = 1.0;
+        selected_path_marker.color = color;
+        selected_path_marker.scale.x = 0.1;
+        selected_path_marker.scale.y = 0.1;
+        selected_path_marker.scale.z = 0.1;
+        selected_path_marker.lifetime = ros::Duration(1.0);
+        for(auto pose_itr = selected_path->poses.begin(); pose_itr != selected_path->poses.end(); pose_itr++)
+        {
+            geometry_msgs::Point p = pose_itr->pose.position;
+            selected_path_marker.points.push_back(p);
+            selected_path_marker.colors.push_back(color);
+        }
+        marker_msg.markers.push_back(selected_path_marker);
     }
     return marker_msg;
 }

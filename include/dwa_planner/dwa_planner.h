@@ -37,6 +37,13 @@ namespace trans = bg::strategy::transform;
 typedef bg::model::d2::point_xy<double> point;
 typedef bg::model::polygon<point,true> polygon;
 
+struct Path
+{
+    double linear_vel;
+    double angular_vel;
+    std::vector<geometry_msgs::PoseStamped> poses;
+};
+
 class DwaPlanner
 {
 public:
@@ -70,10 +77,11 @@ private:
     std::shared_ptr<message_filters::Subscriber<geometry_msgs::TwistStamped> > twist_sub_ptr_;
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy> > sync_ptr_;
     std::vector<geometry_msgs::PoseStamped> predictPath(double linear_vel,double angular_vel);
-    visualization_msgs::MarkerArray generateMarker(std::vector<std::vector<geometry_msgs::PoseStamped> > paths,ros::Time header);
+    visualization_msgs::MarkerArray generateMarker(std::vector<Path> paths,ros::Time header,boost::optional<Path> selected_path);
     visualization_msgs::Marker generateRobotModelMarker(ros::Time stamp);
     boost::optional<polygon> getRobotTrajectoryPolygon(std::vector<geometry_msgs::PoseStamped> path);
-    boost::optional<double> getCost(std::vector<geometry_msgs::PoseStamped> path);
+    boost::optional<double> getCost(Path path);
+    boost::optional<Path> selectPath(std::vector<Path> paths,std::vector<boost::optional<double> > costs);
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
     geometry_msgs::TransformStamped transform_stamped_;
