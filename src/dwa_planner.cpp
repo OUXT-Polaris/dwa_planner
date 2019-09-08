@@ -233,7 +233,6 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
     visualization_msgs::MarkerArray marker_msg;
     marker_msg.markers.push_back(generateRobotModelMarker(stamp));
     int id = 0;
-    /*
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
     {
         visualization_msgs::Marker line_marker;
@@ -263,7 +262,6 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         marker_msg.markers.push_back(line_marker);
         id++;
     }
-    */
     if(selected_path)
     {
         visualization_msgs::Marker selected_path_marker;
@@ -276,9 +274,9 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         selected_path_marker.frame_locked = true;
         std_msgs::ColorRGBA color;
         color.r = 1.0;
-        color.g = 0.5;
-        color.b = 0.3;
-        color.a = 0.8;
+        color.g = 0.0;
+        color.b = 0.0;
+        color.a = 1.0;
         selected_path_marker.color = color;
         selected_path_marker.scale.x = 0.05;
         selected_path_marker.scale.y = 0.05;
@@ -291,6 +289,40 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
             selected_path_marker.colors.push_back(color);
         }
         marker_msg.markers.push_back(selected_path_marker);
+        visualization_msgs::Marker selected_trajectory_marker;
+        selected_trajectory_marker.header.stamp = stamp;
+        selected_trajectory_marker.header.frame_id = robot_frame_;
+        selected_trajectory_marker.ns = "selected_trajectory_marker";
+        selected_trajectory_marker.id = 0;
+        selected_trajectory_marker.type = visualization_msgs::Marker::LINE_STRIP;
+        selected_trajectory_marker.action = visualization_msgs::Marker::ADD;
+        selected_trajectory_marker.frame_locked = true;
+        std_msgs::ColorRGBA trajectory_color;
+        trajectory_color.r = 0.0;
+        trajectory_color.g = 1.0;
+        trajectory_color.b = 0.0;
+        trajectory_color.a = 0.3;
+        selected_trajectory_marker.color = trajectory_color;
+        selected_trajectory_marker.scale.x = 0.1;
+        selected_trajectory_marker.scale.y = 0.1;
+        selected_trajectory_marker.scale.z = 0.1;
+        selected_trajectory_marker.lifetime = ros::Duration(1.0);
+        boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(selected_path->poses);
+        if(trajectory_polygon)
+        {
+            for(auto it = boost::begin(boost::geometry::exterior_ring(*trajectory_polygon)); 
+                it != boost::end(boost::geometry::exterior_ring(*trajectory_polygon)); ++it)
+            {
+                double x = bg::get<0>(*it);
+                double y = bg::get<1>(*it);
+                geometry_msgs::Point p;
+                p.x = x;
+                p.y = y;
+                selected_trajectory_marker.points.push_back(p);
+                selected_trajectory_marker.colors.push_back(trajectory_color);
+            }
+        }
+        marker_msg.markers.push_back(selected_trajectory_marker);
     }
     return marker_msg;
 }
@@ -330,7 +362,7 @@ std::vector<double> DwaPlanner::getAngularVelList(geometry_msgs::TwistStamped tw
     while(true)
     {
         angular_vel = angular_vel + config_.delta_angular_vel;
-        if(angular_vel>config_.lim_angular_vel || std::fabs(angular_vel-twist.twist.angular.z)>(config_.lim_angular_acc*config_.sampling_time))
+        if(std::fabs(angular_vel)>config_.lim_angular_vel || std::fabs(angular_vel-twist.twist.angular.z)>(config_.lim_angular_acc*config_.sampling_time))
         {
             break;
         }
@@ -342,7 +374,7 @@ std::vector<double> DwaPlanner::getAngularVelList(geometry_msgs::TwistStamped tw
     while(true)
     {
         angular_vel = angular_vel - config_.delta_angular_vel;
-        if(angular_vel<(config_.lim_angular_vel)*-1 || std::fabs(angular_vel-twist.twist.angular.z)>(config_.lim_angular_acc*config_.sampling_time))
+        if(std::fabs(angular_vel)<(config_.lim_angular_vel)*-1 || std::fabs(angular_vel-twist.twist.angular.z)>(config_.lim_angular_acc*config_.sampling_time))
         {
             break;
         }
@@ -369,7 +401,7 @@ std::vector<double> DwaPlanner::getLinearVelList(geometry_msgs::TwistStamped twi
     while(true)
     {
         linear_vel = linear_vel + config_.delta_linear_vel;
-        if(linear_vel>config_.lim_linear_vel || std::fabs(linear_vel-twist.twist.linear.x)>(config_.lim_linear_acc*config_.sampling_time))
+        if(std::fabs(linear_vel)>config_.lim_linear_vel || std::fabs(linear_vel-twist.twist.linear.x)>(config_.lim_linear_acc*config_.sampling_time))
         {
             break;
         }
@@ -381,7 +413,7 @@ std::vector<double> DwaPlanner::getLinearVelList(geometry_msgs::TwistStamped twi
     while(true)
     {
         linear_vel = linear_vel - config_.delta_linear_vel;
-        if(linear_vel<(config_.lim_linear_vel)*-1 || std::fabs(linear_vel-twist.twist.linear.x)>(config_.lim_linear_acc*config_.sampling_time))
+        if(std::fabs(linear_vel)<(config_.lim_linear_vel)*-1 || std::fabs(linear_vel-twist.twist.linear.x)>(config_.lim_linear_acc*config_.sampling_time))
         {
             break;
         }
