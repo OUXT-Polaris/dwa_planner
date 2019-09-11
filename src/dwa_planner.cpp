@@ -67,14 +67,17 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
         costs.push_back(cost);
     }
     boost::optional<Path> selected_path = selectPath(paths,costs);
-    visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp,selected_path);
-    marker_pub_.publish(marker_msg);
-    geometry_msgs::TwistStamped twist_msg;
-    twist_msg.header.frame_id = robot_frame_;
-    twist_msg.header.stamp = pose->header.stamp;
-    twist_msg.twist.linear.x = selected_path->linear_vel;
-    twist_msg.twist.angular.z = selected_path->angular_vel;
-    twist_cmd_pub_.publish(twist_msg);
+    if(selected_path)
+    {
+        visualization_msgs::MarkerArray marker_msg = generateMarker(paths,pose->header.stamp,selected_path);
+        marker_pub_.publish(marker_msg);
+        geometry_msgs::TwistStamped twist_msg;
+        twist_msg.header.frame_id = robot_frame_;
+        twist_msg.header.stamp = pose->header.stamp;
+        twist_msg.twist.linear.x = selected_path->linear_vel;
+        twist_msg.twist.angular.z = selected_path->angular_vel;
+        twist_cmd_pub_.publish(twist_msg);
+    }
     return;
 }
 
