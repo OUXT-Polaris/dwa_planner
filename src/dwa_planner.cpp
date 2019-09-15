@@ -49,8 +49,10 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
     }
     std::vector<Path> paths;
     std::vector<boost::optional<double> > costs;
+    //#pragma omp parallel for
     for(auto angular_vel_itr = angular_vel_list.begin(); angular_vel_itr != angular_vel_list.end(); angular_vel_itr++)
     {
+        //#pragma omp parallel for
         for(auto linear_vel_itr = linear_vel_list.begin(); linear_vel_itr != linear_vel_list.end(); linear_vel_itr++)
         {
             std::vector<geometry_msgs::PoseStamped> path = predictPath(*linear_vel_itr,*angular_vel_itr);
@@ -136,14 +138,19 @@ boost::optional<double> DwaPlanner::getCost(Path path)
     current_goal.header = path_.header;
     double yaw_to_target = std::atan2(current_goal.pose.position.y,current_goal.pose.position.x);
     double diff_abgle = getDiffAngle(yaw_to_target,quaternion_operation::convertQuaternionToEulerAngle(current_goal.pose.orientation).z);
-    double goal_distance = std::sqrt(std::pow(current_goal.pose.position.x,2)+std::pow(current_goal.pose.position.y,2));
-    cost = grid_map_cost*config_.weight_grid_map + (M_PI-diff_abgle)*config_.weight_heading + goal_distance+config_.weight_goal_distance + config_.weight_velocity*path.linear_vel;
+    double goal_distance = 
+        std::sqrt(std::pow(current_goal.pose.position.x-path.poses[path.poses.size()-1].pose.position.x,2)
+        +std::pow(current_goal.pose.position.y-path.poses[path.poses.size()-1].pose.position.y,2));
+    cost = grid_map_cost*config_.weight_grid_map + 
+        (M_PI-diff_abgle)*config_.weight_heading + 
+        goal_distance+config_.weight_goal_distance + 
+        config_.weight_velocity*path.linear_vel;
     return cost;
 }
 
 boost::optional<polygon> DwaPlanner::getRobotTrajectoryPolygon(std::vector<geometry_msgs::PoseStamped> path)
 {
-    polygon ret;
+    polygon poly;
     int count = 0;
     for(auto pose_itr = path.begin(); pose_itr != path.end(); pose_itr++)
     {
@@ -160,21 +167,23 @@ boost::optional<polygon> DwaPlanner::getRobotTrajectoryPolygon(std::vector<geome
         bg::exterior_ring(poly_robot) = boost::assign::list_of<point>(x0,y0)(x1,y1)(x2,y2)(x3,y3)(x0,y0);
         if(count == 0)
         {
-            ret = poly_robot;
+            poly = poly_robot;
         }
         else
         {
             std::vector<polygon> out;
-            bg::union_(ret, poly_robot, out);
+            bg::union_(poly, poly_robot, out);
             if(out.size() != 1)
             {
                 return boost::none;
             }
-            ret = out[0];
+            poly = out[0];
         }
         count++;
     }
-    return ret;
+    polygon simple;
+    bg::simplify(poly, simple, config_.simplify_distance);
+    return simple;
 }
 
 void DwaPlanner::paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t level)
@@ -305,10 +314,13 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         trajectory_color.g = 1.0;
         trajectory_color.b = 0.0;
         trajectory_color.a = 0.3;
-        selected_trajectory_marker.color = trajectory_color;
-        selected_trajectory_marker.scale.x = 0.1;
-        selected_trajectory_marker.scale.y = 0.1;
-        selected_trajectory_marker.scale.z = 0.1;
+        selected_trajectory_marker.color.r = 1.0;
+        selected_trajectory_marker.color.g = 0.0;
+        selected_trajectory_marker.color.b = 0.0;
+        selected_trajectory_marker.color.a = 0.8;
+        selected_trajectory_marker.scale.x = 0.2;
+        selected_trajectory_marker.scale.y = 0.2;
+        selected_trajectory_marker.scale.z = 0.2;
         selected_trajectory_marker.lifetime = ros::Duration(1.0);
         boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(selected_path->poses);
         if(trajectory_polygon)
@@ -361,6 +373,14 @@ std::vector<double> DwaPlanner::getAngularVelList(geometry_msgs::TwistStamped tw
 {
     std::vector<double> ret;
     double angular_vel  = twist.twist.angular.z;
+    if(angular_vel>config_.lim_angular_vel)
+    {
+        angular_vel = config_.lim_angular_vel;
+    }
+    else if(angular_vel<(-1*config_.lim_angular_vel))
+    {
+        angular_vel = config_.lim_angular_vel*-1;
+    }
     ret.push_back(angular_vel);
     while(true)
     {
@@ -400,6 +420,14 @@ std::vector<double> DwaPlanner::getLinearVelList(geometry_msgs::TwistStamped twi
 {
     std::vector<double> ret;
     double linear_vel  = twist.twist.linear.x;
+    if(linear_vel>config_.lim_linear_vel)
+    {
+        linear_vel = config_.lim_linear_vel;
+    }
+    else if(linear_vel<(-1*config_.lim_linear_vel))
+    {
+        linear_vel = (-1*config_.lim_linear_vel);
+    }
     ret.push_back(linear_vel);
     while(true)
     {

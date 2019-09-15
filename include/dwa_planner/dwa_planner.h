@@ -31,6 +31,11 @@
 // Headers in this package
 #include <dwa_planner/DwaPlannerConfig.h>
 
+// Headers in OpenMP
+#if WITH_OPEN_MP
+    #include <omp.h>
+#endif
+
 typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseStamped, geometry_msgs::TwistStamped> SyncPolicy;
 namespace bg = boost::geometry;
 namespace trans = bg::strategy::transform;
@@ -52,9 +57,7 @@ public:
 private:
     void paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t level);
     dwa_planner::DwaPlannerConfig config_;
-    void twistStampedCallback(const geometry_msgs::TwistStamped::ConstPtr msg);
     void pathCallback(const usv_navigation_msgs::Path::ConstPtr msg);
-    void currentPoseCallback(const geometry_msgs::PoseStamped::ConstPtr msg);
     void poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr pose,const geometry_msgs::TwistStamped::ConstPtr twist);
     void gridMapCallback(const grid_map_msgs::GridMap::ConstPtr msg);
     dynamic_reconfigure::Server<dwa_planner::DwaPlannerConfig> server_;

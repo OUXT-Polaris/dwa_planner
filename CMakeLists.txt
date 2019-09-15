@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(Eigen3 REQUIRED)
+find_package(OpenMP)
 
 generate_dynamic_reconfigure_options(
   cfg/DwaPlanner.cfg
@@ -44,7 +45,12 @@ include_directories(
 )
 
 add_executable(dwa_planner_node src/dwa_planner_node.cpp src/dwa_planner.cpp)
-target_link_libraries(dwa_planner_node ${catkin_LIBRARIES})
+if(OpenMP_FOUND)
+  add_definitions(-DWITH_OPEN_MP)
+  target_link_libraries(dwa_planner_node ${catkin_LIBRARIES} ${OpenMP_CXX_FLAGS})
+else()
+  target_link_libraries(dwa_planner_node ${catkin_LIBRARIES})
+endif()
 add_dependencies(dwa_planner_node ${catkin_EXPORTED_TARGETS})
 
 #############

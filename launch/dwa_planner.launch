@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="node_name" default="/dwa_planner_node"/>
+    <arg name="node_name" default="dwa_planner_node"/>
     <arg name="path_topic" default="$(arg node_name)/path"/>
     <arg name="twist_stamped_topic" default="$(arg node_name)/twist_stamped"/>
     <arg name="twist_cmd_topic" default="$(arg node_name)/target_twist"/>
@@ -9,7 +9,7 @@
     <arg name="robot_frame" default="base_link"/>
     <arg name="layer_name" default="base_layer"/>
 
-    <node pkg="dwa_planner" type="dwa_planner_node" name="dwa_planner_node" output="screen" respawn="false" respawn_delay="0">
+    <node pkg="dwa_planner" type="dwa_planner_node" name="$(arg node_name)" output="screen" respawn="false" respawn_delay="0">
         <param name="path_topic" value="$(arg path_topic)"/>
         <param name="twist_stamped_topic" value="$(arg twist_stamped_topic)"/>
         <param name="twist_cmd_topic" value="$(arg twist_cmd_topic)"/>
