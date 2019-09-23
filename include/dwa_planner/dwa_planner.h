@@ -27,6 +27,9 @@
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 
 // Headers in this package
 #include <dwa_planner/DwaPlannerConfig.h>
@@ -47,6 +50,8 @@ struct Path
     double linear_vel;
     double angular_vel;
     std::vector<geometry_msgs::PoseStamped> poses;
+    const boost::uuids::uuid id;
+    Path():id(boost::uuids::random_generator()()){}
 };
 
 class DwaPlanner

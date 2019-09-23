@@ -3,6 +3,7 @@
 
 DwaPlanner::DwaPlanner(ros::NodeHandle nh,ros::NodeHandle pnh) : tf_listener_(tf_buffer_)
 {
+    tf_buffer_.setUsingDedicatedThread(true);
     map_recieved_ = false;
     nh_ = nh;
     pnh_ = pnh;
@@ -40,7 +41,7 @@ void DwaPlanner::poseTwistCallback(const geometry_msgs::PoseStamped::ConstPtr po
     std::vector<double> linear_vel_list = getLinearVelList(*twist);
     try
     {
-        transform_stamped_ = tf_buffer_.lookupTransform(pose->header.frame_id, robot_frame_, pose->header.stamp);
+        transform_stamped_ = tf_buffer_.lookupTransform(pose->header.frame_id, robot_frame_, pose->header.stamp, ros::Duration(0.1));
     }
     catch(tf2::TransformException &ex)
     {
@@ -183,7 +184,7 @@ boost::optional<polygon> DwaPlanner::getRobotTrajectoryPolygon(std::vector<geome
     }
     polygon simple;
     bg::simplify(poly, simple, config_.simplify_distance);
-    return simple;
+    return poly;
 }
 
 void DwaPlanner::paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t level)
@@ -195,6 +196,25 @@ void DwaPlanner::paramsCallback(dwa_planner::DwaPlannerConfig &config, uint32_t 
 void DwaPlanner::pathCallback(const usv_navigation_msgs::Path::ConstPtr msg)
 {
     path_ = *msg;
+    try
+    {
+        geometry_msgs::TransformStamped transform_stamped = tf_buffer_.lookupTransform(robot_frame_, msg->header.frame_id, msg->header.stamp, ros::Duration(0.1));
+        for(auto itr = path_.waypoints.begin(); itr != path_.waypoints.end(); itr++)
+        {
+            geometry_msgs::PoseStamped pose;
+            pose.header.frame_id = itr->header.frame_id;
+            pose.header.stamp = itr->header.stamp;
+            pose.pose = itr->pose;
+            tf2::doTransform(pose,pose,transform_stamped);
+            itr->header.frame_id = robot_frame_;
+            itr->pose = pose.pose;
+        }
+    }
+    catch(tf2::TransformException &ex)
+    {
+        ROS_WARN("%s",ex.what());
+        return;
+    }
     return;
 }
 
@@ -247,6 +267,13 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
     int id = 0;
     for(auto path_itr = paths.begin(); path_itr != paths.end(); path_itr++)
     {
+        if(selected_path)
+        {
+            if(selected_path->id == path_itr->id)
+            {
+                continue;
+            }
+        }
         visualization_msgs::Marker line_marker;
         line_marker.header.stamp = stamp;
         line_marker.header.frame_id = robot_frame_;
@@ -261,9 +288,9 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         color.b = 0.3;
         color.a = 0.8;
         line_marker.color = color;
-        line_marker.scale.x = 0.05;
-        line_marker.scale.y = 0.05;
-        line_marker.scale.z = 0.05;
+        line_marker.scale.x = 0.03;
+        line_marker.scale.y = 0.03;
+        line_marker.scale.z = 0.03;
         line_marker.lifetime = ros::Duration(1.0);
         for(auto pose_itr = path_itr->poses.begin(); pose_itr != path_itr->poses.end(); pose_itr++)
         {
@@ -290,9 +317,9 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         color.b = 0.0;
         color.a = 1.0;
         selected_path_marker.color = color;
-        selected_path_marker.scale.x = 0.05;
-        selected_path_marker.scale.y = 0.05;
-        selected_path_marker.scale.z = 0.05;
+        selected_path_marker.scale.x = 0.1;
+        selected_path_marker.scale.y = 0.1;
+        selected_path_marker.scale.z = 0.1;
         selected_path_marker.lifetime = ros::Duration(1.0);
         for(auto pose_itr = selected_path->poses.begin(); pose_itr != selected_path->poses.end(); pose_itr++)
         {
@@ -317,10 +344,10 @@ visualization_msgs::MarkerArray DwaPlanner::generateMarker(std::vector<Path> pat
         selected_trajectory_marker.color.r = 1.0;
         selected_trajectory_marker.color.g = 0.0;
         selected_trajectory_marker.color.b = 0.0;
-        selected_trajectory_marker.color.a = 0.8;
-        selected_trajectory_marker.scale.x = 0.2;
-        selected_trajectory_marker.scale.y = 0.2;
-        selected_trajectory_marker.scale.z = 0.2;
+        selected_trajectory_marker.color.a = 0.6;
+        selected_trajectory_marker.scale.x = 0.1;
+        selected_trajectory_marker.scale.y = 0.1;
+        selected_trajectory_marker.scale.z = 0.1;
         selected_trajectory_marker.lifetime = ros::Duration(1.0);
         boost::optional<polygon> trajectory_polygon = getRobotTrajectoryPolygon(selected_path->poses);
         if(trajectory_polygon)
